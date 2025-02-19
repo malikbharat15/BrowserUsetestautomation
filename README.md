@@ -1,1 +1,2 @@
-https://raw.githubusercontent.com/yourusername/yourrepository/main/assets/video.mov
+
+![Automation](https://raw.githubusercontent.com/malikbharat15/BrowserUsetestautomation/main/assets/video.mov)
