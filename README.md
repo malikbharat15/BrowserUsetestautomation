@@ -1,1 +1,2 @@
-[![Watch the video]](https://raw.githubusercontent.com/malikbharat15/BrowserUsetestautomation/main/assets/video.mov)
+[![Watch the video]
+(https://raw.githubusercontent.com/yourusername/yourrepository/main/assets/video.mov)
