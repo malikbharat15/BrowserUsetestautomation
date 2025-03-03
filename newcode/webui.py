@@ -148,7 +148,8 @@ async def run_browser_agent(
         max_steps,
         use_vision,
         max_actions_per_step,
-        tool_calling_method
+        tool_calling_method,
+        test_case_name
 ):
     global _global_agent_state
     _global_agent_state.clear_stop()  # Clear any previous stop requests
@@ -217,7 +218,9 @@ async def run_browser_agent(
                 max_steps=max_steps,
                 use_vision=use_vision,
                 max_actions_per_step=max_actions_per_step,
-                tool_calling_method=tool_calling_method
+                tool_calling_method=tool_calling_method,
+                test_case_name=test_case_name
+
             )
         else:
             raise ValueError(f"Invalid agent type: {agent_type}")
@@ -376,7 +379,8 @@ async def run_custom_agent(
         max_steps,
         use_vision,
         max_actions_per_step,
-        tool_calling_method
+        tool_calling_method,
+        test_case_name
 ):
     try:
         global _global_browser, _global_browser_context, _global_agent_state, _global_agent
@@ -437,7 +441,7 @@ async def run_custom_agent(
             )
         history = await _global_agent.run(max_steps=max_steps)
 
-        history_file = os.path.join(save_agent_history_path, f"{_global_agent.agent_id}.json")
+        history_file = os.path.join(save_agent_history_path, f"{test_case_name}.json")
         _global_agent.save_history(history_file)
 
         with open(history_file, "r") as file:
@@ -451,32 +455,32 @@ async def run_custom_agent(
 
         print(f"Screenshot values have been removed from {history_file}.")
 
-        structured_json = createStructureJson.create_structured_json(history_file2,task)
-
-        # Save the structured JSON to a new file
-        structured_history_file = os.path.join(save_agent_history_path, "structured_history.json")
-        with open(structured_history_file, "w") as file:
-            json.dump(structured_json, file, indent=4)
-
-        print(f"Structured JSON has been saved to {structured_history_file}.")
-
-        with open(structured_history_file, "r") as file:
-            test_execution_data = json.load(file)
-
-        # Evaluate the test case using Google Gemini
-        analyzer = TestResultAnalyzer()
-        overall_status = analyzer.evaluate_test_case(test_execution_data)
-        print("overall status is ", overall_status)
-
-        # Append the overall_status to the input file
-        test_execution_data["overall_status"] = overall_status
-
-        # Save the updated data back to the input file
-        with open(structured_history_file, "w") as file:
-            json.dump(test_execution_data, file, indent=4)
-
-        # Print the overall_status
-        print(f"Overall Test Case Status: {overall_status}")
+        # structured_json = createStructureJson.create_structured_json(history_file2,task)
+        #
+        # # Save the structured JSON to a new file
+        # structured_history_file = os.path.join(save_agent_history_path, f"Structured_{_global_agent.agent_id}.json")
+        # with open(structured_history_file, "w") as file:
+        #     json.dump(structured_json, file, indent=4)
+        #
+        # print(f"Structured JSON has been saved to {structured_history_file}.")
+        #
+        # with open(structured_history_file, "r") as file:
+        #     test_execution_data = json.load(file)
+        #
+        # # Evaluate the test case using Google Gemini
+        # analyzer = TestResultAnalyzer()
+        # overall_status = analyzer.evaluate_test_case(test_execution_data)
+        # print("overall status is ", overall_status)
+        #
+        # # Append the overall_status to the input file
+        # test_execution_data["overall_status"] = overall_status
+        #
+        # # Save the updated data back to the input file
+        # with open(structured_history_file, "w") as file:
+        #     json.dump(test_execution_data, file, indent=4)
+        #
+        # # Print the overall_status
+        # print(f"Overall Test Case Status: {overall_status}")
 
 
         final_result = history.final_result()
@@ -527,11 +531,13 @@ async def run_with_stream(
     max_steps,
     use_vision,
     max_actions_per_step,
-    tool_calling_method
+    tool_calling_method,
+    test_case_name
 ):
     global _global_agent_state
     stream_vw = 80
     stream_vh = int(80 * window_h // window_w)
+    print("test case name",test_case_name)
     if not headless:
         result = await run_browser_agent(
             agent_type=agent_type,
@@ -556,7 +562,9 @@ async def run_with_stream(
             max_steps=max_steps,
             use_vision=use_vision,
             max_actions_per_step=max_actions_per_step,
-            tool_calling_method=tool_calling_method
+            tool_calling_method=tool_calling_method,
+            test_case_name=test_case_name
+
         )
         # Add HTML content at the start of the result array
         html_content = f"<h1 style='width:{stream_vw}vw; height:{stream_vh}vh'>Using browser...</h1>"
@@ -1040,10 +1048,11 @@ def create_ui(config, theme_name="Ocean"):
                 )
 
                 run_test_case_button.click(
-                    fn=run_test_case_and_agent,  # Use the new function
+                    fn=run_test_case_or_suite_and_agent,  # Use the common function
                     inputs=[
                         test_suite_name,  # Input: Test suite name
                         test_case_index,  # Input: Test case index
+                        gr.State(False),  # Input: run_entire_suite (set to False for single test case)
                         # Pass all the agent parameters
                         agent_type,
                         llm_provider,
@@ -1082,32 +1091,55 @@ def create_ui(config, theme_name="Ocean"):
                     ],
                 )
 
-                # Run button click handler
-
-
-
-
-                run_button.click(
-                    fn=run_with_stream,
-                        inputs=[
-                            agent_type, llm_provider, llm_model_name, llm_num_ctx, llm_temperature, llm_base_url, llm_api_key,
-                            use_own_browser, keep_browser_open, headless, disable_security, window_w, window_h,
-                            save_recording_path, save_agent_history_path, save_trace_path,  task,
-                            enable_recording, task, add_infos, max_steps, use_vision, max_actions_per_step, tool_calling_method
-                        ],
+                # Run Test Suite button
+                run_test_suite_button.click(
+                    fn=run_test_case_or_suite_and_agent,  # Use the common function
+                    inputs=[
+                        test_suite_name,  # Input: Test suite name
+                        gr.State(0),  # Input: test_case_index (ignored when run_entire_suite is True)
+                        gr.State(True),  # Input: run_entire_suite (set to True for entire suite)
+                        # Pass all the agent parameters
+                        agent_type,
+                        llm_provider,
+                        llm_model_name,
+                        llm_num_ctx,
+                        llm_temperature,
+                        llm_base_url,
+                        llm_api_key,
+                        use_own_browser,
+                        keep_browser_open,
+                        headless,
+                        disable_security,
+                        window_w,
+                        window_h,
+                        save_recording_path,
+                        save_agent_history_path,
+                        save_trace_path,
+                        enable_recording,
+                        add_infos,
+                        max_steps,
+                        use_vision,
+                        max_actions_per_step,
+                        tool_calling_method
+                    ],
                     outputs=[
-                        browser_view,           # Browser view
-                        final_result_output,    # Final result
-                        errors_output,          # Errors
-                        model_actions_output,   # Model actions
+                        browser_view,  # Browser view
+                        final_result_output,  # Final result
+                        errors_output,  # Errors
+                        model_actions_output,  # Model actions
                         model_thoughts_output,  # Model thoughts
-                        recording_display,      # Latest recording
-                        trace_file,             # Trace file
-                        agent_history_file,     # Agent history file
-                        stop_button,            # Stop button
-                        run_button              # Run button
+                        recording_display,  # Latest recording
+                        trace_file,  # Trace file
+                        agent_history_file,  # Agent history file
+                        stop_button,  # Stop button
+                        run_test_suite_button  # Run button
                     ],
                 )
+
+
+
+
+
 
 
 
@@ -1147,46 +1179,6 @@ def create_ui(config, theme_name="Ocean"):
                     outputs=recordings_gallery
                 )
 
-            # with gr.TabItem("📁 Configuration", id=9):
-            #     with gr.Group():
-            #         config_file_input = gr.File(
-            #             label="Load Config File",
-            #             file_types=[".pkl"],
-            #             interactive=True
-            #         )
-            #
-            #         load_config_button = gr.Button("Load Existing Config From File", variant="primary")
-            #         save_config_button = gr.Button("Save Current Config", variant="primary")
-            #
-            #         config_status = gr.Textbox(
-            #             label="Status",
-            #             lines=2,
-            #             interactive=False
-            #         )
-            #
-            #     load_config_button.click(
-            #         fn=update_ui_from_config,
-            #         inputs=[config_file_input],
-            #         outputs=[
-            #             agent_type, max_steps, max_actions_per_step, use_vision, tool_calling_method,
-            #             llm_provider, llm_model_name, llm_num_ctx, llm_temperature, llm_base_url, llm_api_key,
-            #             use_own_browser, keep_browser_open, headless, disable_security, enable_recording,
-            #             window_w, window_h, save_recording_path, save_trace_path, save_agent_history_path,
-            #             task, config_status
-            #         ]
-            #     )
-            #
-            #     save_config_button.click(
-            #         fn=save_current_config,
-            #         inputs=[
-            #             agent_type, max_steps, max_actions_per_step, use_vision, tool_calling_method,
-            #             llm_provider, llm_model_name, llm_num_ctx, llm_temperature, llm_base_url, llm_api_key,
-            #             use_own_browser, keep_browser_open, headless, disable_security,
-            #             enable_recording, window_w, window_h, save_recording_path, save_trace_path,
-            #             save_agent_history_path, task,
-            #         ],
-            #         outputs=[config_status]
-            #     )
 
 
 
@@ -1240,9 +1232,10 @@ def serialize_custom_agent_brain(custom_object):
 
 
 
-async def run_test_case_and_agent(
+async def run_test_case_or_suite_and_agent(
     test_suite_name,
     test_case_index,
+    run_entire_suite,  # Flag to determine whether to run a single test case or the entire suite
     agent_type,
     llm_provider,
     llm_model_name,
@@ -1267,7 +1260,7 @@ async def run_test_case_and_agent(
     tool_calling_method
 ):
     """
-    Fetches the test case description and runs the agent with it as the task.
+    Fetches the test case(s) and runs the agent for each one.
     """
     # Load the test suite
     test_cases = testcaseutils.load_test_suite(test_suite_name)
@@ -1275,44 +1268,110 @@ async def run_test_case_and_agent(
     if not test_cases or not isinstance(test_cases, list):
         return "No test cases found or invalid test suite.", None, None, None, None, None, None, None, None, None
 
-    # Check if the test_case_index is valid
-    if test_case_index >= len(test_cases):
-        return "Invalid test case index.", None, None, None, None, None, None, None, None, None
+    # Prepare the list of tasks and corresponding test case names
+    if run_entire_suite:
+        tasks = [test_case["test_case_description"] for test_case in test_cases]
+        test_case_names = [test_case["test_case_name"] for test_case in test_cases]
+    else:
+        if test_case_index >= len(test_cases):
+            return (
+                "Invalid test case index.",  # errors_output
+                "",  # final_result_output
+                "",  # model_actions_output
+                "",  # model_thoughts_output
+                None,  # recording_display
+                None,  # trace_file
+                None,  # agent_history_file
+                gr.update(value="Stop", interactive=True),  # stop_button
+                gr.update(interactive=True),  # run_button
+                "<h1>Invalid test case index.</h1>"  # browser_view
+            )
+        tasks = [test_cases[test_case_index]["test_case_description"]]
+        test_case_names = [test_cases[test_case_index]["test_case_name"]]
 
-    # Fetch the test case description
-    task = test_cases[test_case_index]["test_case_description"]
+    # Initialize a list to store results for all test cases
+    all_results = []
+    all_structured_json = []
+    analyzer = TestResultAnalyzer()
 
-    # Run the agent with the test case description as the task
-    results = []
-    async for result in run_with_stream(
-        agent_type=agent_type,
-        llm_provider=llm_provider,
-        llm_model_name=llm_model_name,
-        llm_num_ctx=llm_num_ctx,
-        llm_temperature=llm_temperature,
-        llm_base_url=llm_base_url,
-        llm_api_key=llm_api_key,
-        use_own_browser=use_own_browser,
-        keep_browser_open=keep_browser_open,
-        headless=headless,
-        disable_security=disable_security,
-        window_w=window_w,
-        window_h=window_h,
-        save_recording_path=save_recording_path,
-        save_agent_history_path=save_agent_history_path,
-        save_trace_path=save_trace_path,
-        enable_recording=enable_recording,
-        task=task,  # Pass the test case description as the task
-        add_infos=add_infos,
-        max_steps=max_steps,
-        use_vision=use_vision,
-        max_actions_per_step=max_actions_per_step,
-        tool_calling_method=tool_calling_method
-    ):
-        results.append(result)
+    # Iterate over each task and run the agent
+    for idx, task in enumerate(tasks):
+        results = []
+        async for result in run_with_stream(
+            agent_type=agent_type,
+            llm_provider=llm_provider,
+            llm_model_name=llm_model_name,
+            llm_num_ctx=llm_num_ctx,
+            llm_temperature=llm_temperature,
+            llm_base_url=llm_base_url,
+            llm_api_key=llm_api_key,
+            use_own_browser=use_own_browser,
+            keep_browser_open=keep_browser_open,
+            headless=headless,
+            disable_security=disable_security,
+            window_w=window_w,
+            window_h=window_h,
+            save_recording_path=save_recording_path,
+            save_agent_history_path=save_agent_history_path,
+            save_trace_path=save_trace_path,
+            enable_recording=enable_recording,
+            task=task,  # Pass the current test case description as the task
+            add_infos=add_infos,
+            max_steps=max_steps,
+            use_vision=use_vision,
+            max_actions_per_step=max_actions_per_step,
+            tool_calling_method=tool_calling_method,
+            test_case_name=test_case_names[idx]  # Pass the corresponding test case name
+        ):
+            results.append(result)
 
-    # Return the final result from the generator
-    return results[-1] if results else ("", "", "", "", None, None, None, gr.update(value="Stop", interactive=True), gr.update(interactive=True))
+            history_file = os.path.join(save_agent_history_path, f"{test_case_names[idx]}.json")
+            with open(history_file, "r") as file:
+                history_data = json.load(file)
+
+            structured_json = createStructureJson.create_structured_json(history_data, task)
+            overall_status = analyzer.evaluate_test_case(structured_json)
+            structured_json["overall_status"] = overall_status
+            structured_json["recording_link"]= get_latest_video("/Users/bharatmalik/Documents/web-ui-main/tmp/record_videos")
+
+            all_structured_json.append(structured_json)
+
+        if not run_entire_suite:
+            individual_structured_file = os.path.join(save_agent_history_path,
+                                                      f"{test_case_names[idx]}_structured.json")
+            with open(individual_structured_file, "w") as file:
+                json.dump(structured_json, file, indent=4)
+            print(f"Structured JSON for individual test case has been saved to {individual_structured_file}.")
+
+    if run_entire_suite:
+        combined_structured_file = os.path.join(save_agent_history_path, f"{test_suite_name}_structured.json")
+        with open(combined_structured_file, "w") as file:
+            json.dump(all_structured_json, file, indent=4)
+        print(f"Combined structured JSON has been saved to {combined_structured_file}.")
+
+
+    # Return the results for all test cases
+    return all_results[-1] if all_results else (
+        "",  # final_result_output
+        "",  # errors_output
+        "",  # model_actions_output
+        "",  # model_thoughts_output
+        None,  # recording_display
+        None,  # trace_file
+        None,  # agent_history_file
+        gr.update(value="Stop", interactive=True),  # stop_button
+        gr.update(interactive=True),  # run_button
+        "<h1>Task completed.</h1>"  # browser_view
+    )
+
+def get_latest_video(directory):
+    videos_files=glob.glob(os.path.join(directory,"*.[mM][pP]4")) + glob.glob((os.path.join(directory,"*.[wW][eE][bB][mM]")))
+
+    if not videos_files:
+        return None
+
+    latest_video=max(videos_files,key=os.path.getctime)
+    return latest_video
 
 def write_raw_to_file(filename, data):
     """
