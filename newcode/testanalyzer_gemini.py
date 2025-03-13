@@ -2,7 +2,6 @@ import json
 import google.generativeai as genai  # Import the Google Generative AI library
 
 # Set your Google API key
-genai.configure(api_key="")
 
 class TestResultAnalyzer:
 
@@ -14,17 +13,25 @@ class TestResultAnalyzer:
         """
         # Create the prompt for the model
         prompt = f"""
-        You are a Test Result Analyzer. Analyze the following test execution data and determine if the test case PASSED, FAILED, or is UNKNOWN. 
+        You are a Test Result Analyzer. Analyze the test execution data below and determine if the test case PASSED, FAILED, or is UNKNOWN. 
 
-        Provide ONLY the status in the following format:
+        Provide ONLY the status in this format:
         overall_status:PASS/FAIL/UNKNOWN
 
-        Guidelines:
-        1. FAIL if any critical step fails (e.g., login, search).
-        2. FAIL if the final result does not match expectations.
-        3. Use the model's thoughts and actions to explain the status.
+        **Evaluation Rules**:
+        1. FAIL if:
+           - Any critical step fails (navigation, search, checkout).
+           - The final result does not match the expected outcome described in the test case description.
+           - A step fails despite the model claiming success (contradiction).
+        2. PASS if:
+           - All critical steps succeed.
+           - The final result matches the test case description, even if non-critical steps failed.
+           - Partial failures are explicitly acknowledged but do not block success.
 
-        Test Execution Data:
+        **Test Case Description**:
+        {test_execution_data["task_description"]}
+
+        **Test Execution Data**:
         {json.dumps(test_execution_data, indent=4)}
 
         Response:
@@ -54,7 +61,7 @@ class TestResultAnalyzer:
 # Example usage
 if __name__ == "__main__":
     # Load the structured JSON output (created earlier)
-    input_file = "/Users/bharatmalik/Documents/web-ui-main/tmp/agent_history/structured_history.json"
+    input_file = "/Users/bharatmalik/Documents/web-ui-main/src/utils/structured.json"
     with open(input_file, "r") as file:
         test_execution_data = json.load(file)
 
