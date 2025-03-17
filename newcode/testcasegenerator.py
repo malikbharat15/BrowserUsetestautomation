@@ -1,8 +1,12 @@
-import openai
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage, SystemMessage
 import json
 
-# Define the prompt template for the test case generator
-prompt_template = """
+# Initialize the ChatOpenAI model
+llm = ChatOpenAI(model="gpt-4")  # Use the appropriate model (e.g., "gpt-4", "gpt-3.5-turbo")
+
+# Define the system message (instructions for the LLM)
+system_message = """
 You are a test case generator. Your task is to convert user input into a structured, step-by-step test case. Follow these rules:
 1. Break the user input into clear, actionable steps.
 2. Each step should describe what needs to be done in natural language.
@@ -45,29 +49,24 @@ Search for laptops on Amazon, filter by 4-star ratings, and click the first resu
 
 **Expected Result:**  
 The product page for the selected laptop is displayed.
-
-**Now, convert the following user input into a structured test case:**
-User Input: "{user_input}"
 """
 
 
 # Function to generate structured test case
 def generate_test_case(user_input):
-    # Format the prompt with the user input
-    prompt = prompt_template.format(user_input=user_input)
+    # Create the chat messages
+    messages = [
+        SystemMessage(content=system_message),  # System message with instructions
+        HumanMessage(content=f"User Input: {user_input}")  # User input
+    ]
 
-    # Call the LLM (e.g., OpenAI GPT-4) to generate the test case
-    response = openai.Completion.create(
-        engine="gpt-4",  # Use the appropriate model
-        prompt=prompt,
-        max_tokens=500,  # Adjust based on the expected length of the test case
-        temperature=0.3 # Lower temperature for more deterministic output
-    )
+    # Call the ChatOpenAI model
+    response = llm(messages)
 
-    # Extract the generated test case
-    structured_test_case = response.choices[0].text.strip()
+    # Extract the generated test case from the response
+    structured_test_case = response.content.strip()
 
-    # Return the test case as a dictionary or JSON object
+    # Return the test case as a string
     return structured_test_case
 
 
