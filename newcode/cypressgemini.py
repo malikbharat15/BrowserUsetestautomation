@@ -3,7 +3,7 @@ import argparse
 import os
 
 # Configure Gemini
-GEMINI_API_KEY = "AIzaSyCwnqIt9dKK9g8PvGowms-ime8Bb1OsMB4"
+
 genai.configure(api_key=GEMINI_API_KEY)
 
 
