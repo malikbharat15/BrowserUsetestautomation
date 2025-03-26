@@ -1,0 +1,194 @@
+=== Gemini Accessibility Analysis ===
+## Accessibility Issues in ComplexComponent
+
+Here's a breakdown of the accessibility violations in the provided React code, along with suggested fixes and their impact on users:
+
+**1. Missing Proper Heading Structure (Semantic HTML Violation)**
+
+* **WCAG Violation:** 1.3.1 Info and Relationships (Level A)
+* **Location:** Line 12
+* **Description:**  The "Main Section" is styled as a heading visually but uses a `<div>`.  Screen readers and other assistive technologies rely on proper heading structure (`<h1>` to `<h6>`) to understand the document outline and navigate effectively.
+* **User Impact:** Users navigating with screen readers will not understand the hierarchical relationship of this section to the rest of the content.
+* **Code Fix:** Replace the `<div>` with an appropriate heading level, likely `<h2>`:
+
+```jsx
+<h2>Main Section</h2>
+```
+
+
+**2. Non-Semantic Clickable Div**
+
+* **WCAG Violation:** 4.1.2 Name, Role, Value (Level A)
+* **Location:** Line 15
+* **Description:** A `<div>` is used for a clickable element without providing a semantic role. This makes it difficult for assistive technologies to identify it as an interactive element.
+* **User Impact:** Users relying on keyboard navigation or assistive technologies might not be able to interact with this element.
+* **Code Fix:** Replace the `<div>` with a `<button>`:
+
+```jsx
+<button onClick={() => alert('Clicked!')}>Click Me!</button>
+```
+
+**3. Image Without Alt Text**
+
+* **WCAG Violation:** 1.1.1 Non-text Content (Level A)
+* **Location:** Line 19
+* **Description:** The `<img>` element lacks an `alt` attribute.  Alt text provides a textual description of the image for users who cannot see it.
+* **User Impact:** Screen reader users will not know what the image represents.
+* **Code Fix:** Add a descriptive `alt` attribute:
+
+```jsx
+<img src="https://example.com/image.jpg" alt="Descriptive alt text here" />
+```
+
+**4. Form with Missing Labels**
+
+* **WCAG Violation:** 1.3.1 Info and Relationships (Level A), 3.3.2 Labels or Instructions (Level A)
+* **Location:** Lines 22-25
+* **Description:** The form input lacks an associated `<label>`. Labels are essential for connecting inputs to their descriptions, making forms usable for assistive technologies.
+* **User Impact:** Screen reader users will not understand the purpose of the input field.
+* **Code Fix:** Add a `<label>` element and associate it with the input using ` htmlFor`:
+
+```jsx
+<label htmlFor="name">Enter your name</label>
+<input type="text" id="name" placeholder="Enter your name" />
+<button>Submit</button>
+```
+
+**5. Modal without Focus Management**
+
+* **WCAG Violation:** 2.4.3 Focus Order (Level A), 2.1.2 No Keyboard Trap (Level A)
+* **Location:** Lines 28-36
+* **Description:** When the modal opens, focus is not programmatically moved inside the modal. This can disorient keyboard users and create keyboard traps.
+* **User Impact:** Keyboard users might be unable to interact with the modal content or become trapped within it.
+* **Code Fix:** Use `useRef` and `useEffect` to manage focus:
+
+```jsx
+import React, { useState, useRef, useEffect } from 'react';
+// ...
+
+const modalRef = useRef(null);
+
+useEffect(() => {
+  if (isOpen && modalRef.current) {
+    modalRef.current.focus();
+  }
+}, [isOpen]);
+
+// ...
+<div className="modal" role="dialog" tabIndex="-1" ref={modalRef}>
+// ...
+```
+
+**6. Poor Color Contrast**
+
+* **WCAG Violation:** 1.4.3 Contrast (Minimum) (Level AA)
+* **Location:** Line 39
+* **Description:** The text color (#ccc) on a white background (#fff) has insufficient contrast.
+* **User Impact:** Users with low vision may have difficulty reading the text.
+* **Code Fix:** Use a color combination that meets the WCAG contrast requirements.  Tools like WebAIM's Color Contrast Checker can help. For example, change the text color to #000 (black).
+
+```jsx
+<p style={{ color: '#000', backgroundColor: '#fff' }}>
+  This text now has better contrast.
+</p>
+```
+
+
+**7. Link Without Descriptive Text**
+
+* **WCAG Violation:** 2.4.4 Link Purpose (In Context) (Level A)
+* **Location:** Line 42
+* **Description:** "Click here" link text is not descriptive.  Link text should clearly indicate the destination or purpose of the link.
+* **User Impact:** Users relying on screen readers will only hear "Click here," which provides no context about the link's destination.
+* **Code Fix:** Use more descriptive link text:
+
+```jsx
+<a href="https://example.com">Visit Example.com</a>
+```
+
+
+**8. Keyboard Navigation Issue (Unnecessary Focusable Element)**
+
+* **WCAG Violation:** 2.4.7 Focus Visible (Level AA) (Indirectly)
+* **Location:** Line 45
+* **Description:**  The `<div>` with `tabIndex="0"` is unnecessarily focusable. This can confuse keyboard users and disrupt the expected tab order. Unless this div has a specific interactive purpose, it shouldn't be focusable.
+* **User Impact:**  Keyboard users might be surprised when this div receives focus, especially if it doesn't have a visually clear interactive purpose.
+* **Code Fix:** Remove `tabIndex="0"` unless the div has a specific interactive function.
+
+
+**9. Missing ARIA Roles on a Custom Dropdown**
+
+* **WCAG Violation:** 4.1.2 Name, Role, Value (Level A)
+* **Location:** Lines 48-56
+* **Description:** The custom dropdown lacks appropriate ARIA roles and attributes to convey its functionality to assistive technologies.
+* **User Impact:** Screen reader users may not understand how to interact with the dropdown.
+* **Code Fix:** Implement ARIA roles and attributes (this requires more complex changes involving JavaScript to manage state and keyboard interactions – see a detailed example in the further explanation below).
+
+
+
+**10. Video without Captions**
+
+* **WCAG Violation:** 1.2.2 Captions (Prerecorded) (Level A)
+* **Location:** Lines 59-61
+* **Description:** The `<video>` element doesn't include captions.  Captions are essential for users who are deaf or hard of hearing.
+* **User Impact:** Deaf or hard-of-hearing users will not be able to understand the audio content of the video.
+* **Code Fix:** Provide a `<track>` element with captions:
+
+```jsx
+<video controls>
+  <source src="example.mp4" type="video/mp4" />
+  <track kind="captions" src="example.vtt" srclang="en" label="English Captions" />
+</video>
+```
+
+
+## Further Explanation: Custom Dropdown Accessibility
+
+Fixing the custom dropdown (issue #9) requires more than just adding ARIA attributes.  You need to manage keyboard interactions, state changes, and focus properly.  Here's a simplified example of how to improve the dropdown's accessibility:
+
+
+```jsx
+import React, { useState, useRef, useEffect } from 'react';
+
+function AccessibleDropdown() {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const handleToggle = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      dropdownRef.current.focus();
+    }
+  }, [isOpen]);
+
+
+  return (
+    <div className="dropdown" ref={dropdownRef} role="combobox" aria-expanded={isOpen} aria-haspopup="listbox">
+      <div
+        className="dropdown-header"
+        onClick={handleToggle}
+        onKeyDown={handleKeyDown}
+        tabIndex={0} // Make header focusable
+        aria-controls="dropdown-menu" // Associate with menu
+      >
+        Select an option
+      </div>
+      {isOpen && (
+        <ul className="dropdown-menu" id="dropdown-menu" role="listbox"> {/* Give the menu an ID */}
+          <li role="option" tabIndex={0}>Option 1</li>
+          <li role="option" tabIndex={0}>Option 2</li>
+          <li role="option" tabIndex={0}>Option 3</li>
+        </ul>
+      )}
+    </div>
+  );
+}
