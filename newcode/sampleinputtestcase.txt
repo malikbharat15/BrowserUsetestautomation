@@ -1,0 +1,37 @@
+Feature: User Registration
+
+Description:
+Allow users to create a new account using their email address.
+
+Acceptance Criteria:
+- User can access the "Sign Up" page from the homepage.
+- User must provide a valid email address, password, confirm password, and full name.
+- Password must be at least 8 characters, contain 1 uppercase letter, 1 lowercase letter, 1 number.
+- Confirm Password must match Password.
+- User must agree to the Terms and Conditions (checkbox) before registering.
+- Upon successful registration, user is redirected to a welcome page.
+- Error messages should be shown for:
+    - Missing mandatory fields
+    - Invalid email format
+    - Passwords that don't meet criteria
+    - Mismatch between Password and Confirm Password
+    - Unchecked Terms and Conditions box
+
+Notes:
+- The registration page URL is {registration_url}.
+- Success Message: "Account successfully created! Please check your email to verify your account."
+- Error messages must be displayed inline next to each field.
+- All form fields should have placeholders (e.g., "Enter your email").
+- Terms and Conditions link should open in a new tab.
+
+Negative Testing Considerations:
+- Enter invalid emails (example: test@com, user@.com)
+- Submit the form without filling any fields
+- Submit the form without accepting the Terms
+- Provide mismatched Password and Confirm Password
+- Use a very short password ("abc123")
+- Attempt to register with an already existing email (simulate existing email)
+
+Additional:
+- Loading spinner should appear when user submits the registration form.
+- Registration API endpoint: POST /api/register (you don't need to generate API test cases unless UI fails to work).
