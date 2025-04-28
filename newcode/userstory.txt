@@ -1,0 +1,38 @@
+User Story Name:
+User Registration on Website
+
+Description:
+As a new visitor,
+I want to create an account on the website,
+So that I can access members-only content and manage my personal profile.
+
+Acceptance Criteria:
+1. Sign-Up Page Accessibility
+   - Given a user is on the homepage,
+   - When they click on the "Sign Up" button,
+   - Then they should be redirected to the "Create Account" page.
+
+2. Valid Registration
+   - Given the user is on the "Create Account" page,
+   - When they enter valid email, password, confirm password, and agree to the Terms and Conditions,
+   - Then the system should create a new user account and display a success message.
+
+3. Email Validation
+   - Given the user is entering an email,
+   - When they input an invalid email format (e.g., missing '@'),
+   - Then the system should display an error message: "Please enter a valid email address."
+
+4. Password Validation
+   - Given the user is setting a password,
+   - When they enter a password that doesn't meet minimum criteria (e.g., less than 8 characters),
+   - Then the system should display an error message: "Password must be at least 8 characters."
+
+5. Duplicate Email Handling
+   - Given a user tries to register with an email already associated with an existing account,
+   - When they submit the registration form,
+   - Then the system should display an error message: "Email already registered. Please log in."
+
+6. Terms and Conditions Enforcement
+   - Given the user has not checked the "I agree to the Terms and Conditions" box,
+   - When they attempt to submit the form,
+   - Then the system should prevent submission and display a warning: "You must agree to the Terms and Conditions to register."
