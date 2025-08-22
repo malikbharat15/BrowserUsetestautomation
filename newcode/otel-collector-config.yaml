@@ -1,0 +1,113 @@
+# otel-collector-config.yaml - Updated for webhook receiver
+receivers:
+  # HTTP receiver for webhook events
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Simple HTTP receiver for GitHub webhooks
+  httpcheck/github:
+    targets:
+      - endpoint: http://localhost:8088/webhook/github
+    collection_interval: 60s
+
+processors:
+  # Add resource attributes for better filtering
+  resource:
+    attributes:
+      - key: service.name
+        value: "github-actions"
+        action: upsert
+      - key: service.version
+        value: "1.0.0"
+        action: upsert
+
+  # Transform GitHub data to proper OTEL format
+  transform:
+    trace_statements:
+      - context: span
+        statements:
+          - set(name, Concat([attributes["github.workflow.name"], ":", attributes["github.job.name"]], " "))
+
+    metric_statements:
+      - context: metric
+        statements:
+          - set(description, "GitHub Actions CI/CD Metrics")
+
+  # Batch processing for performance
+  batch:
+    timeout: 1s
+    send_batch_size: 100
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Jaeger for traces
+  jaeger:
+    endpoint: jaeger:14250
+    tls:
+      insecure: true
+
+  # Prometheus for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: github
+    const_labels:
+      source: github_actions
+
+  # Loki for logs
+  loki:
+    endpoint: "http://loki:3100/loki/api/v1/push"
+    labels:
+      attributes:
+        github.workflow.name: "workflow_name"
+        github.job.name: "job_name"
+        github.repository: "repository"
+
+  # Debug exporter for troubleshooting
+  debug:
+    verbosity: basic
+
+extensions:
+  # Health check endpoint
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+  # Memory ballast for stable memory usage
+  memory_ballast:
+    size_mib: 64
+
+service:
+  extensions: [health_check, memory_ballast]
+
+  pipelines:
+    # Traces pipeline for workflow execution spans
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, transform, batch]
+      exporters: [jaeger, debug]
+
+    # Metrics pipeline for performance and success metrics
+    metrics:
+      receivers: [otlp, httpcheck/github]
+      processors: [memory_limiter, resource, transform, batch]
+      exporters: [prometheus, debug]
+
+    # Logs pipeline for detailed workflow logs
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki, debug]
+
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      level: "basic"
+      address: 0.0.0.0:8888

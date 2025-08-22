@@ -1,0 +1,15 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install required packages
+RUN pip install flask requests
+
+# Copy the simulator script
+COPY github_simulator.py /app/
+
+# Expose port
+EXPOSE 8080
+
+# Run the simulator
+CMD ["python", "github_simulator.py"]

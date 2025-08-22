@@ -1,0 +1,230 @@
+# GitHub Actions CI/CD Monitoring - E2E Setup Guide
+
+## Overview
+This setup provides a complete end-to-end monitoring solution for GitHub Actions workflows using OpenTelemetry, Prometheus, Jaeger, Loki, and Grafana.
+
+## Architecture
+```
+GitHub Simulator → OTEL Collector → [Jaeger (Traces), Prometheus (Metrics), Loki (Logs)] → Grafana
+```
+
+## Quick Start
+
+### 1. Setup Directory Structure
+```bash
+mkdir github-actions-monitoring
+cd github-actions-monitoring
+
+# Create required directories
+mkdir -p grafana/provisioning/datasources
+mkdir -p grafana/provisioning/dashboards
+mkdir -p grafana/dashboards
+mkdir -p logs
+```
+
+### 2. Create Configuration Files
+Save all the provided configuration files in your project directory:
+
+- `docker-compose.yml` - Main orchestration file
+- `otel-collector-config.yaml` - OTEL Collector configuration
+- `prometheus.yml` - Prometheus configuration
+- `github_simulator.py` - GitHub webhook simulator
+- `Dockerfile.simulator` - Dockerfile for the simulator
+
+### 3. Create Grafana Data Source Configuration
+```bash
+# Create grafana/provisioning/datasources/datasources.yml
+cat > grafana/provisioning/datasources/datasources.yml << 'EOF'
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+EOF
+```
+
+### 4. Create Dashboard Provisioning
+```bash
+# Create grafana/provisioning/dashboards/dashboards.yml
+cat > grafana/provisioning/dashboards/dashboards.yml << 'EOF'
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+EOF
+```
+
+### 5. Save the Grafana Dashboard
+Save the provided dashboard JSON as `grafana/dashboards/github-actions-dashboard.json`
+
+### 6. Start the Stack
+```bash
+# Build and start all services
+docker-compose up -d
+
+# Check if all services are running
+docker-compose ps
+```
+
+### 7. Verify Services
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Jaeger**: http://localhost:16686
+- **GitHub Simulator**: http://localhost:8080
+- **OTEL Collector Health**: http://localhost:13133
+
+## Usage
+
+### Start Continuous Simulation
+```bash
+# Start simulation with 2-minute intervals between workflow runs
+curl -X POST http://localhost:8080/start \
+  -H "Content-Type: application/json" \
+  -d '{"interval_minutes": 2}'
+```
+
+### Trigger Single Workflow Run
+```bash
+# Trigger a single workflow run for testing
+curl -X POST http://localhost:8080/trigger
+```
+
+### Check Simulation Status
+```bash
+curl http://localhost:8080/status
+```
+
+### Stop Simulation
+```bash
+curl -X POST http://localhost:8080/stop
+```
+
+## Dashboard Features
+
+### 1. **Workflow Pass/Fail Over Time**
+- **Panel**: "Workflow Success Rate Over Time"
+- **Metric**: Success rate percentage with thresholds
+- **Panel**: "Workflow Runs (24h)"
+- **Metric**: Shows success vs failure trends over time
+
+### 2. **Job Status Within Workflows**
+- **Panel**: "Job Status Distribution"
+- **Metric**: Pie chart showing job success/failure distribution
+- **Panel**: "Job Execution Timeline"
+- **Metric**: Timeline view of all job executions with status
+
+### 3. **Step Status Within Jobs**
+- **Panel**: "Step Success Rate by Job"
+- **Metric**: Heatmap showing success rates for each step in each job
+- **Panel**: "Top Failing Steps"
+- **Metric**: Table showing most frequently failing steps
+
+### 4. **Timing Information**
+- **Panel**: "Average Job Duration by Type"
+- **Metric**: Bar chart showing average duration per job type
+- **Panel**: "Workflow Duration Trends"
+- **Metric**: Time series showing workflow execution times
+
+## Sample Workflow Structure
+
+The simulator creates realistic workflows with:
+
+### Jobs and Steps:
+1. **initialization**
+   - Setup Runner (30s)
+   - Checkout Code (15s)
+   - Setup Dependencies (45s)
+
+2. **build**
+   - Setup Node.js (20s)
+   - Install Dependencies (60s)
+   - Build Application (120s)
+   - Build Docker Image (90s)
+
+3. **test**
+   - Unit Tests (180s)
+   - Integration Tests (300s)
+   - Security Scan (240s)
+   - Upload Test Results (30s)
+
+4. **deploy_dev**
+   - Deploy to Dev (120s)
+   - Run Smoke Tests (90s)
+   - Update Status (10s)
+
+5. **deploy_qat**
+   - Deploy to QAT (150s)
+   - Run E2E Tests (600s)
+   - Performance Tests (300s)
+   - Update QAT Status (10s)
+
+6. **deploy_prod**
+   - Deploy to Production (180s)
+   - Health Check (60s)
+   - Notify Teams (15s)
+
+## Troubleshooting
+
+### Check OTEL Collector Logs
+```bash
+docker-compose logs otel-collector
+```
+
+### Check Simulator Logs
+```bash
+docker-compose logs github-simulator
+```
+
+### Verify Data Flow
+1. Check OTEL Collector metrics: http://localhost:8889/metrics
+2. Check Prometheus targets: http://localhost:9090/targets
+3. Check Jaeger traces: http://localhost:16686
+
+### Reset Everything
+```bash
+docker-compose down -v
+docker-compose up -d
+```
+
+## Customization
+
+### Modify Workflow Structure
+Edit the `WORKFLOW_JOBS` list in `github_simulator.py` to match your actual CI/CD pipeline structure.
+
+### Adjust Failure Rates
+Modify the `failure_rate` parameters in the job and step definitions to simulate more realistic failure scenarios.
+
+### Add Custom Metrics
+Extend the simulator to send additional custom metrics via the OTEL SDK.
+
+### Configure Alerts
+Add Prometheus alerting rules for critical workflow failures or performance degradation.
+
+## Data Retention
+
+- **Prometheus**: 200h (configurable in prometheus.yml)
+- **Jaeger**: Default retention (configurable)
+- **Loki**: Default retention (configurable)
+
+This setup provides comprehensive observability for your CI/CD pipelines with realistic data patterns and multiple visualization options in Grafana.
